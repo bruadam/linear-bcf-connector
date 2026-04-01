@@ -96,6 +96,9 @@ model AppSettings {
   syncUsers        Boolean  @default(true)
   syncStatuses     Boolean  @default(true)
   syncLabels       Boolean  @default(true)
+  // Linear OAuth app credentials (override env vars when set)
+  linearClientId     String?
+  linearClientSecret String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
