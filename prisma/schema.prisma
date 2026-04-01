@@ -1,13 +1,124 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  // Note: In Prisma 7, the connection URL is configured in prisma.config.ts
+  // (datasource.url = process.env["DATABASE_URL"]) rather than in this file.
+  // At runtime, the URL is passed via the @prisma/adapter-pg constructor.
+}
+
+// Represents an Auth0 user (organisation member) who has signed in
+model User {
+  id        String   @id @default(cuid())
+  auth0Id   String   @unique
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  linearConnections LinearConnection[]
+  bcfConfigs        BcfServerConfig[]
+  appSettings       AppSettings?
+}
+
+// Linear OAuth token storage per user
+model LinearConnection {
+  id           String   @id @default(cuid())
+  userId       String
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  linearOrgId  String?
+  linearUserId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectMappings ProjectMapping[]
+
+  @@unique([userId])
+}
+
+// A Linear project/team mapping chosen by the user
+model ProjectMapping {
+  id                 String   @id @default(cuid())
+  linearConnectionId String
+  linearTeamId       String
+  linearTeamName     String
+  linearProjectId    String?
+  linearProjectName  String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  linearConnection   LinearConnection @relation(fields: [linearConnectionId], references: [id], onDelete: Cascade)
+  bcfConfigs         BcfServerConfig[]
+
+  @@unique([linearConnectionId])
+}
+
+// BCF live server configuration (the endpoint Solibri connects to, and
+// the Solibri-side details our server uses to push/pull topics)
+model BcfServerConfig {
+  id              String   @id @default(cuid())
+  userId          String
+  projectMappingId String? 
+  // Our BCF server identity
+  serverUrl       String   // Public URL of this service's BCF endpoint
+  // Solibri / remote BCF server details (when our app acts as BCF client)
+  remoteServerUrl String?
+  remoteClientId  String?
+  remoteClientSecret String?
+  remoteAccessToken  String?
+  remoteRefreshToken String?
+  remoteTokenExpiry  DateTime?
+  projectId       String?  // BCF project ID on the remote server
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectMapping  ProjectMapping? @relation(fields: [projectMappingId], references: [id])
+
+  @@unique([userId])
+}
+
+// Global app settings per user (priority labels, sync preferences)
+model AppSettings {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  // JSON array: [{linearPriorityValue: 0, label: "No priority", color: "#..."}]
+  priorityLabels   Json     @default("[]")
+  // Sync preferences
+  syncUsers        Boolean  @default(true)
+  syncStatuses     Boolean  @default(true)
+  syncLabels       Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// BCF topics imported from BCF ZIP or created via live connector
+model BcfTopic {
+  id              String   @id @default(cuid())
+  bcfGuid         String   @unique
+  title           String
+  description     String?
+  status          String?
+  priority        String?
+  assignedTo      String?
+  dueDate         DateTime?
+  creationDate    DateTime?
+  modifiedDate    DateTime?
+  // Linked Linear issue
+  linearIssueId   String?
+  linearIssueUrl  String?
+  // Raw BCF XML/JSON payload
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
