@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bcfAuth, isNextResponse } from "@/lib/bcf-auth";
-import { getLinearClientForUser, linearPriorityToBcf, bcfPriorityToLinear } from "@/lib/linear";
+import { getLinearClientForUser } from "@/lib/linear";
+import { prisma } from "@/lib/prisma";
 
 type Params = { params: Promise<{ projectId: string; topicId: string }> };
 
@@ -14,10 +15,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const { topicId } = await params;
   const linear = await getLinearClientForUser(ctx.userId);
-  if (!linear) return NextResponse.json({ message: "Linear not connected" }, { status: 503 });
+  if (!linear)
+    return NextResponse.json(
+      { message: "Linear not connected" },
+      { status: 503 },
+    );
 
   const issue = await linear.issue(topicId);
-  if (!issue) return NextResponse.json({ message: "Topic not found" }, { status: 404 });
+  if (!issue)
+    return NextResponse.json({ message: "Topic not found" }, { status: 404 });
 
   const [state, assignee, labels, creator] = await Promise.all([
     issue.state,
@@ -31,7 +37,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     topic_type: "Issue",
     topic_status: state?.name ?? "Open",
     title: issue.title,
-    priority: linearPriorityToBcf(issue.priority),
+    priority: labels.nodes[0]?.name ?? "",
     labels: labels.nodes.map((l) => l.name),
     creation_date: issue.createdAt?.toISOString(),
     created_by: creator?.email ?? "",
@@ -52,26 +58,46 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { topicId } = await params;
   const linear = await getLinearClientForUser(ctx.userId);
-  if (!linear) return NextResponse.json({ message: "Linear not connected" }, { status: 503 });
+  if (!linear)
+    return NextResponse.json(
+      { message: "Linear not connected" },
+      { status: 503 },
+    );
 
   const body = await req.json();
+
+  // Resolve priority string to a label ID
+  let labelIds: string[] | undefined;
+  if (body.priority !== undefined) {
+    const appSettings = await prisma.appSettings.findUnique({
+      where: { userId: ctx.userId },
+    });
+    const syncedLabels = Array.isArray(appSettings?.syncedLabels)
+      ? (appSettings.syncedLabels as { id: string; name: string }[])
+      : [];
+    const match = syncedLabels.find(
+      (l) => l.name.toLowerCase() === (body.priority as string).toLowerCase(),
+    );
+    labelIds = match ? [match.id] : [];
+  }
 
   // Update the Linear issue
   const result = await linear.updateIssue(topicId, {
     title: body.title,
     description: body.description,
-    priority: body.priority ? bcfPriorityToLinear(body.priority) : undefined,
+    labelIds,
     dueDate: body.due_date ? new Date(body.due_date).toISOString() : undefined,
   });
 
   const updated = await result.issue;
-  if (!updated) return NextResponse.json({ message: "Not found" }, { status: 404 });
+  if (!updated)
+    return NextResponse.json({ message: "Not found" }, { status: 404 });
 
   return NextResponse.json({
     guid: updated.id,
     title: updated.title,
     description: updated.description ?? "",
-    priority: body.priority ?? linearPriorityToBcf(updated.priority),
+    priority: body.priority ?? "",
     modified_date: updated.updatedAt?.toISOString(),
   });
 }
@@ -85,7 +111,11 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   const { topicId } = await params;
   const linear = await getLinearClientForUser(ctx.userId);
-  if (!linear) return NextResponse.json({ message: "Linear not connected" }, { status: 503 });
+  if (!linear)
+    return NextResponse.json(
+      { message: "Linear not connected" },
+      { status: 503 },
+    );
 
   await linear.deleteIssue(topicId);
   return new NextResponse(null, { status: 204 });

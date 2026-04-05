@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bcfAuth, isNextResponse } from "@/lib/bcf-auth";
-import { getLinearClientForUser, linearPriorityToBcf, bcfPriorityToLinear } from "@/lib/linear";
+import { getLinearClientForUser } from "@/lib/linear";
 import { prisma } from "@/lib/prisma";
 import { generateBcfGuid } from "@/lib/utils";
 
@@ -17,7 +17,10 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { projectId } = await params;
   const linear = await getLinearClientForUser(ctx.userId);
   if (!linear) {
-    return NextResponse.json({ message: "Linear not connected" }, { status: 503 });
+    return NextResponse.json(
+      { message: "Linear not connected" },
+      { status: 503 },
+    );
   }
 
   const issues = await linear.issues({
@@ -27,16 +30,20 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   const topics = await Promise.all(
     issues.nodes.map(async (issue) => {
-      const assignee = await issue.assignee;
+      const [assignee, issueLabels] = await Promise.all([
+        issue.assignee,
+        issue.labels(),
+      ]);
+      const labelNames = issueLabels.nodes.map((l) => l.name);
       return {
         guid: issue.id,
         topic_type: "Issue",
         topic_status: (await issue.state)?.name ?? "Open",
         reference_links: [],
         title: issue.title,
-        priority: linearPriorityToBcf(issue.priority),
+        priority: labelNames[0] ?? "",
         index: issue.number,
-        labels: (await issue.labels()).nodes.map((l) => l.name),
+        labels: labelNames,
         creation_date: issue.createdAt?.toISOString(),
         created_by: (await issue.creator)?.email ?? "",
         modified_date: issue.updatedAt?.toISOString(),
@@ -50,7 +57,7 @@ export async function GET(req: NextRequest, { params }: Params) {
           comment_actions: ["updateComment"],
         },
       };
-    })
+    }),
   );
 
   return NextResponse.json(topics);
@@ -67,7 +74,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { projectId } = await params;
   const linear = await getLinearClientForUser(ctx.userId);
   if (!linear) {
-    return NextResponse.json({ message: "Linear not connected" }, { status: 503 });
+    return NextResponse.json(
+      { message: "Linear not connected" },
+      { status: 503 },
+    );
   }
 
   const body = await req.json();
@@ -78,17 +88,35 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ message: "Team not found" }, { status: 404 });
   }
 
+  // Resolve the priority string to a label ID from the team's labels
+  let labelIds: string[] = [];
+  if (body.priority) {
+    const appSettings = await prisma.appSettings.findUnique({
+      where: { userId: ctx.userId },
+    });
+    const syncedLabels = Array.isArray(appSettings?.syncedLabels)
+      ? (appSettings.syncedLabels as { id: string; name: string }[])
+      : [];
+    const match = syncedLabels.find(
+      (l) => l.name.toLowerCase() === (body.priority as string).toLowerCase(),
+    );
+    if (match) labelIds = [match.id];
+  }
+
   const issue = await linear.createIssue({
     teamId: projectId,
     title: body.title ?? "Untitled BCF Topic",
     description: body.description ?? "",
-    priority: bcfPriorityToLinear(body.priority),
+    labelIds,
     dueDate: body.due_date ? new Date(body.due_date).toISOString() : undefined,
   });
 
   const createdIssue = await issue.issue;
   if (!createdIssue) {
-    return NextResponse.json({ message: "Failed to create issue" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Failed to create issue" },
+      { status: 500 },
+    );
   }
 
   // Persist mapping in our DB
@@ -111,9 +139,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       topic_status: "Open",
       title: createdIssue.title,
       creation_date: createdIssue.createdAt?.toISOString(),
-      priority: body.priority ?? "Normal",
+      priority: body.priority ?? "",
       description: createdIssue.description ?? "",
     },
-    { status: 201 }
+    { status: 201 },
   );
 }

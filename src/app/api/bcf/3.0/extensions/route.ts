@@ -15,14 +15,13 @@ export async function GET(req: NextRequest) {
     where: { userId: ctx.userId },
   });
 
-  // Priority labels from stored settings (labels configured by user, synced from Linear priorities)
-  const priorityLabels = Array.isArray(settings?.priorityLabels)
-    ? settings.priorityLabels
+  // Priorities are driven by the synced Linear labels for the team
+  const syncedLabelsForPriority = Array.isArray(settings?.syncedLabels)
+    ? settings.syncedLabels
     : [];
-  const priorities: string[] =
-    priorityLabels.length > 0
-      ? (priorityLabels as { label: string }[]).map((p) => p.label)
-      : ["No priority", "Urgent", "High", "Medium", "Low"];
+  const priorities: string[] = (
+    syncedLabelsForPriority as { name: string }[]
+  ).map((l) => l.name);
 
   // Users from last sync
   const syncedUsers = Array.isArray(settings?.syncedUsers)
