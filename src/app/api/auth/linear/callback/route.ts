@@ -9,25 +9,32 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
+  const appUrl =
+    process.env.AUTH0_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://localhost:3000";
+
   if (error) {
     return NextResponse.redirect(
-      new URL(`/settings?error=${encodeURIComponent(error)}`, process.env.AUTH0_BASE_URL!)
+      new URL(`/settings?error=${encodeURIComponent(error)}`, appUrl),
     );
   }
 
   if (!code || !state) {
     return NextResponse.redirect(
-      new URL("/settings?error=missing_params", process.env.AUTH0_BASE_URL!)
+      new URL("/settings?error=missing_params", appUrl),
     );
   }
 
   let userId: string;
   try {
-    const decoded = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
+    const decoded = JSON.parse(
+      Buffer.from(state, "base64url").toString("utf8"),
+    );
     userId = decoded.userId;
   } catch {
     return NextResponse.redirect(
-      new URL("/settings?error=invalid_state", process.env.AUTH0_BASE_URL!)
+      new URL("/settings?error=invalid_state", appUrl),
     );
   }
 
@@ -38,7 +45,9 @@ export async function GET(req: NextRequest) {
       : null;
 
     // Fetch Linear user & org info
-    const linearClient = new LinearClient({ accessToken: tokenData.access_token });
+    const linearClient = new LinearClient({
+      accessToken: tokenData.access_token,
+    });
     const viewer = await linearClient.viewer;
     const org = await linearClient.organization;
 
@@ -61,13 +70,11 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.redirect(
-      new URL("/settings?connected=linear", process.env.AUTH0_BASE_URL!)
-    );
+    return NextResponse.redirect(new URL("/settings?connected=linear", appUrl));
   } catch (err) {
     console.error("Linear OAuth callback error:", err);
     return NextResponse.redirect(
-      new URL("/settings?error=oauth_failed", process.env.AUTH0_BASE_URL!)
+      new URL("/settings?error=oauth_failed", appUrl),
     );
   }
 }

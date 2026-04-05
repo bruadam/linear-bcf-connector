@@ -96,6 +96,10 @@ model AppSettings {
   syncUsers        Boolean  @default(true)
   syncStatuses     Boolean  @default(true)
   syncLabels       Boolean  @default(true)
+  // Persisted sync data from Linear
+  syncedUsers      Json     @default("[]")
+  syncedStatuses   Json     @default("[]")
+  syncedLabels     Json     @default("[]")
   // Linear OAuth app credentials (override env vars when set)
   linearClientId     String?
   linearClientSecret String?

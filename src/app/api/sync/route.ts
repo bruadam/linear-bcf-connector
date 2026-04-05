@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
 
   const linear = await getLinearClientForUser(user.id);
   if (!linear) {
-    return NextResponse.json({ message: "Linear not connected" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Linear not connected" },
+      { status: 400 },
+    );
   }
 
   const connection = await prisma.linearConnection.findUnique({
@@ -38,9 +41,22 @@ export async function POST(req: NextRequest) {
   ]);
 
   const summary = {
-    users: orgUsers.nodes.map((u) => ({ id: u.id, name: u.name, email: u.email })),
-    statuses: states.nodes.map((s) => ({ id: s.id, name: s.name, color: s.color, type: s.type })),
-    labels: labels.nodes.map((l) => ({ id: l.id, name: l.name, color: l.color })),
+    users: orgUsers.nodes.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+    })),
+    statuses: states.nodes.map((s) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color,
+      type: s.type,
+    })),
+    labels: labels.nodes.map((l) => ({
+      id: l.id,
+      name: l.name,
+      color: l.color,
+    })),
   };
 
   // Update app settings with latest sync data
@@ -48,10 +64,16 @@ export async function POST(req: NextRequest) {
     where: { userId: user.id },
     update: {
       priorityLabels: buildDefaultPriorityLabels(),
+      syncedUsers: summary.users,
+      syncedStatuses: summary.statuses,
+      syncedLabels: summary.labels,
     },
     create: {
       userId: user.id,
       priorityLabels: buildDefaultPriorityLabels(),
+      syncedUsers: summary.users,
+      syncedStatuses: summary.statuses,
+      syncedLabels: summary.labels,
     },
   });
 
@@ -60,14 +82,36 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/sync
- * Returns the last-synced data.
+ * Returns the last-synced data from the DB, or live from Linear if not yet synced.
  */
 export async function GET(req: NextRequest) {
   const user = await getDbUser();
-  if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
+  // Return persisted sync data if available
+  const settings = await prisma.appSettings.findUnique({
+    where: { userId: user.id },
+  });
+  if (
+    settings &&
+    Array.isArray(settings.syncedUsers) &&
+    (settings.syncedUsers as unknown[]).length > 0
+  ) {
+    return NextResponse.json({
+      users: settings.syncedUsers,
+      statuses: settings.syncedStatuses,
+      labels: settings.syncedLabels,
+    });
+  }
+
+  // Fall back to live Linear query if not yet synced
   const linear = await getLinearClientForUser(user.id);
-  if (!linear) return NextResponse.json({ message: "Linear not connected" }, { status: 400 });
+  if (!linear)
+    return NextResponse.json(
+      { message: "Linear not connected" },
+      { status: 400 },
+    );
 
   const connection = await prisma.linearConnection.findUnique({
     where: { userId: user.id },
@@ -87,9 +131,22 @@ export async function GET(req: NextRequest) {
   ]);
 
   return NextResponse.json({
-    users: orgUsers.nodes.map((u) => ({ id: u.id, name: u.name, email: u.email })),
-    statuses: states.nodes.map((s) => ({ id: s.id, name: s.name, color: s.color, type: s.type })),
-    labels: labels.nodes.map((l) => ({ id: l.id, name: l.name, color: l.color })),
+    users: orgUsers.nodes.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+    })),
+    statuses: states.nodes.map((s) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color,
+      type: s.type,
+    })),
+    labels: labels.nodes.map((l) => ({
+      id: l.id,
+      name: l.name,
+      color: l.color,
+    })),
   });
 }
 

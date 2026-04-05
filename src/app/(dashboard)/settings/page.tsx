@@ -1,13 +1,28 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, XCircle, Link2, Plus, Trash2, Save } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Link2,
+  Plus,
+  Trash2,
+  Save,
+  Copy,
+  Check,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 interface PriorityLabel {
@@ -69,13 +84,24 @@ function SettingsContent() {
   const [remoteServerUrl, setRemoteServerUrl] = useState("");
   const [remoteClientId, setRemoteClientId] = useState("");
   const [remoteClientSecret, setRemoteClientSecret] = useState("");
-  const [priorityLabels, setPriorityLabels] = useState<PriorityLabel[]>(DEFAULT_PRIORITY_LABELS);
+  const [priorityLabels, setPriorityLabels] = useState<PriorityLabel[]>(
+    DEFAULT_PRIORITY_LABELS,
+  );
   const [showSecret, setShowSecret] = useState(false);
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
+  function copyToClipboard(text: string, key: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedSnippet(key);
+      setTimeout(() => setCopiedSnippet(null), 2000);
+    });
+  }
 
   useEffect(() => {
     const connected = searchParams.get("connected");
     const error = searchParams.get("error");
-    if (connected === "linear") setMessage("✅ Linear account connected successfully!");
+    if (connected === "linear")
+      setMessage("✅ Linear account connected successfully!");
     if (error) setMessage(`❌ Error: ${error}`);
   }, [searchParams]);
 
@@ -93,7 +119,7 @@ function SettingsContent() {
         setPriorityLabels(
           data.appSettings?.priorityLabels?.length
             ? (data.appSettings.priorityLabels as PriorityLabel[])
-            : DEFAULT_PRIORITY_LABELS
+            : DEFAULT_PRIORITY_LABELS,
         );
 
         // Fetch teams if connected
@@ -106,7 +132,12 @@ function SettingsContent() {
           });
           if (bcfRes.ok) {
             const projects = await bcfRes.json();
-            setTeams(projects.map((p: { project_id: string; name: string }) => ({ id: p.project_id, name: p.name })));
+            setTeams(
+              projects.map((p: { project_id: string; name: string }) => ({
+                id: p.project_id,
+                name: p.name,
+              })),
+            );
           }
         }
       }
@@ -161,7 +192,9 @@ function SettingsContent() {
       </div>
 
       {message && (
-        <div className="rounded-md border bg-card px-4 py-3 text-sm">{message}</div>
+        <div className="rounded-md border bg-card px-4 py-3 text-sm">
+          {message}
+        </div>
       )}
 
       <Tabs defaultValue="linear">
@@ -177,7 +210,9 @@ function SettingsContent() {
           <Card>
             <CardHeader>
               <CardTitle>Linear Account</CardTitle>
-              <CardDescription>Connect your Linear workspace to sync issues.</CardDescription>
+              <CardDescription>
+                Connect your Linear workspace to sync issues.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
@@ -185,7 +220,9 @@ function SettingsContent() {
                   <>
                     <CheckCircle2 className="h-5 w-5 text-green-500" />
                     <span className="font-medium">Connected</span>
-                    <Badge variant="secondary">Org: {settings.linearOrgId?.slice(0, 8)}…</Badge>
+                    <Badge variant="secondary">
+                      Org: {settings.linearOrgId?.slice(0, 8)}…
+                    </Badge>
                   </>
                 ) : (
                   <>
@@ -195,9 +232,13 @@ function SettingsContent() {
                 )}
               </div>
               <a href="/auth/linear">
-                <Button variant={settings?.linearConnected ? "outline" : "default"}>
+                <Button
+                  variant={settings?.linearConnected ? "outline" : "default"}
+                >
                   <Link2 className="mr-2 h-4 w-4" />
-                  {settings?.linearConnected ? "Reconnect Linear" : "Connect Linear"}
+                  {settings?.linearConnected
+                    ? "Reconnect Linear"
+                    : "Connect Linear"}
                 </Button>
               </a>
             </CardContent>
@@ -208,7 +249,8 @@ function SettingsContent() {
               <CardHeader>
                 <CardTitle>Team & Project</CardTitle>
                 <CardDescription>
-                  Select which Linear team (and optional project) BCF topics will be imported into.
+                  Select which Linear team (and optional project) BCF topics
+                  will be imported into.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -218,7 +260,9 @@ function SettingsContent() {
                     id="team-select"
                     value={selectedTeamId}
                     onChange={(e) => {
-                      const selected = teams.find((t) => t.id === e.target.value);
+                      const selected = teams.find(
+                        (t) => t.id === e.target.value,
+                      );
                       setSelectedTeamId(e.target.value);
                       setSelectedTeamName(selected?.name ?? "");
                     }}
@@ -233,7 +277,9 @@ function SettingsContent() {
                   </select>
                 </div>
                 {selectedTeamId && (
-                  <p className="text-xs text-muted-foreground">Selected: {selectedTeamName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {selectedTeamName}
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -246,7 +292,8 @@ function SettingsContent() {
             <CardHeader>
               <CardTitle>This Service&apos;s BCF URL</CardTitle>
               <CardDescription>
-                The BCF API base URL Solibri should connect to. Auto-filled from your deployment URL.
+                The BCF API base URL Solibri should connect to. Auto-filled from
+                your deployment URL.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -264,8 +311,8 @@ function SettingsContent() {
             <CardHeader>
               <CardTitle>Remote BCF Server (Solibri Push)</CardTitle>
               <CardDescription>
-                Optional: if you want this service to also act as a BCF client and push topics
-                to a Solibri-hosted BCF server.
+                Optional: if you want this service to also act as a BCF client
+                and push topics to a Solibri-hosted BCF server.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -307,7 +354,8 @@ function SettingsContent() {
             <CardHeader>
               <CardTitle>Priority Labels</CardTitle>
               <CardDescription>
-                Map Linear priority levels to display labels and colours for BCF topics.
+                Map Linear priority levels to display labels and colours for BCF
+                topics.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -338,7 +386,11 @@ function SettingsContent() {
                   </Badge>
                   {idx >= 5 && (
                     <button
-                      onClick={() => setPriorityLabels(priorityLabels.filter((_, i) => i !== idx))}
+                      onClick={() =>
+                        setPriorityLabels(
+                          priorityLabels.filter((_, i) => i !== idx),
+                        )
+                      }
                       className="text-destructive hover:text-destructive/80"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -352,7 +404,11 @@ function SettingsContent() {
                 onClick={() =>
                   setPriorityLabels([
                     ...priorityLabels,
-                    { value: priorityLabels.length, label: "Custom", color: "#888888" },
+                    {
+                      value: priorityLabels.length,
+                      label: "Custom",
+                      color: "#888888",
+                    },
                   ])
                 }
               >
@@ -369,15 +425,18 @@ function SettingsContent() {
             <CardHeader>
               <CardTitle>BCF Credentials for Solibri</CardTitle>
               <CardDescription>
-                Use these credentials when setting up the BCF Live Connector in Solibri. The token
-                endpoint is{" "}
+                Use these credentials when setting up the BCF Live Connector in
+                Solibri. The token endpoint is{" "}
                 <code className="text-xs">{serverUrl || "…"}/auth/token</code>.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <Label>Client ID</Label>
-                <Input readOnly value={settings?.bcfClientId ?? "Connect Linear first"} />
+                <Input
+                  readOnly
+                  value={settings?.bcfClientId ?? "Connect Linear first"}
+                />
               </div>
               <div>
                 <Label>Client Secret</Label>
@@ -387,15 +446,202 @@ function SettingsContent() {
                     type={showSecret ? "text" : "password"}
                     value={settings?.bcfClientSecret ?? "Connect Linear first"}
                   />
-                  <Button variant="outline" onClick={() => setShowSecret(!showSecret)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSecret(!showSecret)}
+                  >
                     {showSecret ? "Hide" : "Show"}
                   </Button>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Keep your client secret private. These credentials authenticate Solibri to this
-                service.
+                Keep your client secret private. These credentials authenticate
+                Solibri to this service.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>How to Connect in Solibri</CardTitle>
+              <CardDescription>
+                Follow these steps to add this service as a BCF Live Server in
+                Solibri.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
+                <li>
+                  Open{" "}
+                  <span className="font-medium text-foreground">Solibri</span>{" "}
+                  and go to{" "}
+                  <span className="font-medium text-foreground">
+                    Tools → BCF Live Connector → Manage Servers
+                  </span>
+                  .
+                </li>
+                <li>
+                  Click{" "}
+                  <span className="font-medium text-foreground">
+                    Add new server
+                  </span>{" "}
+                  and choose{" "}
+                  <span className="font-medium text-foreground">
+                    OAuth2 / BCF 3.0
+                  </span>{" "}
+                  as the connection type.
+                </li>
+                <li>
+                  Set the{" "}
+                  <span className="font-medium text-foreground">
+                    BCF Server URL
+                  </span>{" "}
+                  to:
+                  <code className="block mt-1 rounded bg-muted px-3 py-2 text-xs break-all">
+                    {serverUrl ||
+                      `${process.env.NEXT_PUBLIC_APP_URL ?? "<APP_URL>"}/api/bcf/3.0`}
+                  </code>
+                </li>
+                <li>
+                  Set the{" "}
+                  <span className="font-medium text-foreground">
+                    OAuth2 Token URL
+                  </span>{" "}
+                  to:
+                  <code className="block mt-1 rounded bg-muted px-3 py-2 text-xs break-all">
+                    {serverUrl ||
+                      `${process.env.NEXT_PUBLIC_APP_URL ?? "<APP_URL>"}/api/bcf/3.0`}
+                    /auth/token
+                  </code>
+                </li>
+                <li>
+                  Enter the{" "}
+                  <span className="font-medium text-foreground">Client ID</span>{" "}
+                  and{" "}
+                  <span className="font-medium text-foreground">
+                    Client Secret
+                  </span>{" "}
+                  from the fields above.
+                </li>
+                <li>
+                  Select{" "}
+                  <span className="font-medium text-foreground">
+                    client_credentials
+                  </span>{" "}
+                  as the grant type and click{" "}
+                  <span className="font-medium text-foreground">Connect</span>.
+                </li>
+                <li>
+                  Once connected, Solibri will list your Linear team&apos;s
+                  issues as BCF topics.
+                </li>
+              </ol>
+              <p className="text-xs text-muted-foreground border-t pt-3">
+                Tip: if the connection fails, make sure your Linear account is
+                connected in the <strong>Linear</strong> tab and a team is
+                selected.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Direct HTTPS API Access</CardTitle>
+              <CardDescription>
+                Use these examples to call the BCF API programmatically with any
+                HTTP client (curl, Postman, fetch, etc.).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 text-sm">
+              {/* Step 1 – get token */}
+              {(() => {
+                const base =
+                  serverUrl ||
+                  `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/bcf/3.0`;
+                const tokenSnippet = `curl -X POST \\\n  "${base}/auth/token" \\\n  -H "Content-Type: application/x-www-form-urlencoded" \\\n  -d "grant_type=client_credentials" \\\n  -d "client_id=${settings?.bcfClientId ?? "<CLIENT_ID>"}" \\\n  -d "client_secret=${settings?.bcfClientSecret ?? "<CLIENT_SECRET>"}"`;
+                const apiSnippet = `# List projects\ncurl "${base}/projects" \\\n  -H "Authorization: Bearer ${settings?.bcfClientSecret ?? "<ACCESS_TOKEN>"}"\n\n# List topics in a project\ncurl "${base}/projects/<PROJECT_ID>/topics" \\\n  -H "Authorization: Bearer ${settings?.bcfClientSecret ?? "<ACCESS_TOKEN>"}"\n\n# Create a topic\ncurl -X POST \\\n  "${base}/projects/<PROJECT_ID>/topics" \\\n  -H "Authorization: Bearer ${settings?.bcfClientSecret ?? "<ACCESS_TOKEN>"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"title":"My issue","topic_type":"Issue","topic_status":"Open"}'`;
+                return (
+                  <>
+                    <div className="space-y-1">
+                      <p className="font-medium">1. Obtain a bearer token</p>
+                      <p className="text-muted-foreground text-xs mb-2">
+                        POST to the token endpoint with your Client ID and
+                        Client Secret using{" "}
+                        <code className="text-xs">
+                          application/x-www-form-urlencoded
+                        </code>
+                        .
+                      </p>
+                      <div className="relative group">
+                        <pre className="rounded bg-muted px-3 py-3 text-xs overflow-x-auto whitespace-pre pr-10">
+                          {tokenSnippet}
+                        </pre>
+                        <button
+                          onClick={() => copyToClipboard(tokenSnippet, "token")}
+                          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-muted hover:bg-accent"
+                          title="Copy to clipboard"
+                        >
+                          {copiedSnippet === "token" ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-muted-foreground text-xs">
+                        Response:{" "}
+                        <code className="text-xs">{`{"access_token":"…","token_type":"bearer","expires_in":3600}`}</code>
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="font-medium">2. Call any BCF endpoint</p>
+                      <p className="text-muted-foreground text-xs mb-2">
+                        Pass the <code className="text-xs">access_token</code>{" "}
+                        as a <code className="text-xs">Bearer</code> token in
+                        the <code className="text-xs">Authorization</code>{" "}
+                        header.
+                      </p>
+                      <div className="relative group">
+                        <pre className="rounded bg-muted px-3 py-3 text-xs overflow-x-auto whitespace-pre pr-10">
+                          {apiSnippet}
+                        </pre>
+                        <button
+                          onClick={() => copyToClipboard(apiSnippet, "api")}
+                          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-muted hover:bg-accent"
+                          title="Copy to clipboard"
+                        >
+                          {copiedSnippet === "api" ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground border-t pt-3 space-y-1">
+                      <p>
+                        Full base URL: <code className="text-xs">{base}</code>
+                      </p>
+                      <p>
+                        Available routes:{" "}
+                        <code className="text-xs">/projects</code>,{" "}
+                        <code className="text-xs">/projects/:id/topics</code>,{" "}
+                        <code className="text-xs">
+                          /projects/:id/topics/:tid/comments
+                        </code>
+                        ,{" "}
+                        <code className="text-xs">
+                          /projects/:id/topics/:tid/viewpoints
+                        </code>
+                        , <code className="text-xs">/extensions</code>,{" "}
+                        <code className="text-xs">/current-user</code>
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
@@ -413,7 +659,13 @@ function SettingsContent() {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64 text-muted-foreground">Loading settings…</div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-64 text-muted-foreground">
+          Loading settings…
+        </div>
+      }
+    >
       <SettingsContent />
     </Suspense>
   );

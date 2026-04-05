@@ -1,7 +1,9 @@
 import { LinearClient } from "@linear/sdk";
 import { prisma } from "./prisma";
 
-export async function getLinearClientForUser(userId: string): Promise<LinearClient | null> {
+export async function getLinearClientForUser(
+  userId: string,
+): Promise<LinearClient | null> {
   const connection = await prisma.linearConnection.findUnique({
     where: { userId },
   });
@@ -43,32 +45,36 @@ export function getLinearAuthUrl(state: string): string {
     response_type: "code",
     scope: "read,write,issues:create,comments:create",
     state,
-    actor: "application",
+    actor: "user",
     prompt: "consent",
   });
   return `https://linear.app/oauth/authorize?${params.toString()}`;
 }
 
 // Map Linear priority number to BCF priority string
+// These match the default priorityLabels stored in AppSettings
 export function linearPriorityToBcf(priority: number): string {
   const map: Record<number, string> = {
-    0: "Normal",
+    0: "No priority",
     1: "Urgent",
     2: "High",
     3: "Medium",
     4: "Low",
   };
-  return map[priority] ?? "Normal";
+  return map[priority] ?? "No priority";
 }
 
 // Map BCF priority string to Linear priority number
-export function bcfPriorityToLinear(priority: string | null | undefined): number {
+export function bcfPriorityToLinear(
+  priority: string | null | undefined,
+): number {
   const map: Record<string, number> = {
     urgent: 1,
     high: 2,
     medium: 3,
     low: 4,
-    normal: 3,
+    "no priority": 0,
+    normal: 0,
   };
   return map[(priority ?? "").toLowerCase()] ?? 0;
 }
