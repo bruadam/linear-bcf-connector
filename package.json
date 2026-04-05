@@ -15,7 +15,7 @@
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.16.1",
     "@linear/sdk": "^80.1.0",
-    "@prisma/adapter-pg": "^6.19.3",
+    "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
