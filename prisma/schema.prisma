@@ -24,6 +24,89 @@ model User {
   linearConnections LinearConnection[]
   bcfConfigs        BcfServerConfig[]
   appSettings       AppSettings?
+  memberships       Membership[]
+  invitations       Invitation[]     @relation("InvitedBy")
+}
+
+// Organization groups users together
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  projects    Project[]
+  invitations Invitation[]
+}
+
+enum MemberRole {
+  admin
+  member
+}
+
+// Membership links a user to an organization with a role
+model Membership {
+  id             String     @id @default(cuid())
+  userId         String
+  organizationId String
+  role           MemberRole @default(member)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+}
+
+// Pending invitations to join an organization
+model Invitation {
+  id             String           @id @default(cuid())
+  email          String
+  organizationId String
+  role           MemberRole       @default(member)
+  status         InvitationStatus @default(pending)
+  invitedById    String
+  token          String           @unique @default(cuid())
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitedBy", fields: [invitedById], references: [id])
+}
+
+// A project within an organization — ties to a Linear team/project and BCF config
+model Project {
+  id             String  @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String
+
+  // Linear connection
+  linearTeamId      String?
+  linearTeamName    String?
+  linearProjectId   String?
+  linearProjectName String?
+
+  // BCF server configuration
+  bcfServerUrl       String?
+  bcfRemoteServerUrl String?
+  bcfRemoteClientId  String?
+  bcfRemoteClientSecret String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 // Linear OAuth token storage per user
@@ -66,7 +149,7 @@ model ProjectMapping {
 model BcfServerConfig {
   id              String   @id @default(cuid())
   userId          String
-  projectMappingId String? 
+  projectMappingId String?
   // Our BCF server identity
   serverUrl       String   // Public URL of this service's BCF endpoint
   // Solibri / remote BCF server details (when our app acts as BCF client)
